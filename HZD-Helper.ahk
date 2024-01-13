@@ -8,7 +8,12 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 #Include FindText.ahk
 
+; Pictures
 
+Escape_thumb:="|<>**50$28.00000zU007z0E0TQ3U1k04070DVsQ1zDkzjvz3ysC0Q3ws3kDzU701a2Q03s9zzxz7zzXwCNw7U0040000000000000008"
+
+
+global wheel_mode:=true
 
 global interrupted_w:=false
 global interrupted_s:=false
@@ -21,7 +26,7 @@ global bow_wait:=1500
 global shift_time:=250
 global reload_time:=150
 
-global stop_loop:=false
+global script_active:=true
 global dodging:=false
 global firing_bow:=false
 global extra_arrows:=true
@@ -35,117 +40,97 @@ global this_y:=0
 global this_location:=0
 global last_location:=0
 global counter:=0
+global immediate_use:=false
 
+global textentry:=false
 
-global errt:=0.3
-global errb:=0.3
 
 
 combat_loop()
 
 return
+
 ;--------------AUTOEXEC STOPS HERE---------------------------------------------
 
+Pause::
+pause_script()
+
+return
+
+
+
+
+
+#if (!textentry) ; Conditional hotkey activation
+;----------------------------------------Function Keys to Tools----------------
 
 F1:: ;Potion150
-this_item:=0xA6AAA6
-this_x:=206
-this_y:=958
-this_location:=1
+potion_150()
 
 return
 
 F2:: ;Potion300
-this_item:=0xCACFCA
-this_x:=178
-this_y:=955
-this_location:=3
+potion_300()
 
 return
 
 F3:: ;PotionBoost
-this_item:=0xE5BC69
-this_x:=174
-this_y:=991
-this_location:=4
+potion_boost()
 
 return
 
 F4:: ;Call_Beast
-this_item:=0xF4F6F4
-this_x:=187
-this_y:=961
-this_location:=11
+call_beast()
 
 return
 
 
 F5:: ;Fire_Resist
-this_item:=0xEEAE2C
-this_x:=193
-this_y:=997
-this_location:=5
+fire_resist()
 
 
 return
 
 F6:: ;Shock_Resist
-this_item:=0x2FA2DA
-this_x:=186
-this_y:=997
-this_location:=6
+shock_resist()
 
 return
 
 F7:: ;Freeze_Resist
-this_item:=0x7CD6CB
-this_x:=189
-this_y:=994
-this_location:=7
+freeze_resist()
 
 return
 
 F8:: ;Corruption_Resist
-this_item:=0x40C949
-this_x:=194
-this_y:=998
-this_location:=8
+corruption_resist()
 
 return
 
 
 F9:: ;Detonating_Trap
-this_item:=0xF48B44
-this_x:=200
-this_y:=975
-this_location:=2
-
+detonating_trap()
 return
 
 F10:: ;Shock_Trap
-this_item:=0x1F9FEF
-this_x:=202
-this_y:=984
-this_location:=9 
+shock_trap()
 
 return
 
 F11:: ;Fire_Trap
-this_item:=0xEBC54C
-this_x:=205
-this_y:=984
-this_location:=10  
+fire_trap()
 
 return
 
 F12:: ;Lure_Beast
-this_item:=0xF5F8F5
-this_x:=187
-this_y:=998
-this_location:=12  
+lure_beast()
 
 return
 
+;----------------------------------------Number keys to delay----------------
+
+~1::
+bow_wait:=1500
+return
 
 ~2::
 bow_wait:=1500
@@ -159,14 +144,111 @@ return
 bow_wait:=1500
 return
 
-
-MButton::
-
-scripted_bow() 
-
+;----------------------------------------Dodge overrides----------------------
+~w::
+dodge_forward()
 
 return
 
+~s::
+dodge_backward()
+
+return
+
+~a::
+dodge_left()
+
+return
+
+~d::
+dodge_right()
+
+return
+
+;----------------------------------------Shortcuts to Health Potions----------------
+
+z::
+potion_150()
+return
+
+
+x:: 
+potion_300()
+
+return
+
+
+c::
+potion_boost()
+
+return
+
+v::
+call_beast()
+
+return
+
+;~m:: ; allow mousewheel in maps
+;wheel_mode:=false
+
+;return
+
+~Esc::
+wheel_mode:=true
+
+return
+
+;----------------------------------------Special Mouse Buttons----------------
+
+MButton::
+scripted_bow() 
+
+return
+
+WheelLeft::
+detonating_trap()
+
+return
+
+WheelRight:
+shock_trap()
+
+return
+
+
+$WheelDown::
+if (wheel_mode)
+  lure_beast()
+else {
+  Send {WheelDown}
+  ;Sleep, keywaittime
+  ;Send {WheelDown up}
+} 
+return
+
+$WheelUp::
+if (wheel_mode)
+  fire_trap()
+else {
+  Send {WheelUp}
+  ;Sleep, keywaittime
+  ;Send {WheelUp up}
+} 
+return
+
+
+CapsLock:: 
+if (action_screen())
+  SoundPlay, Sounds/1.mp3,1
+else
+  SoundPlay, Sounds/2.mp3,1
+return
+
+;--------------------------------------------------------------------------
+#if  ; Conditional hotkey activation ends
+;--------------------------------------------------------------------------
+
+;----------------------------------------Utility Functions----------------
 
 ToRGB(color) {
     return { "r": (color >> 16) & 0xFF, "g": (color >> 8) & 0xFF, "b": color & 0xFF }
@@ -195,9 +277,11 @@ Check_pixel(xcoord, ycoord, colormatch) {
        return false
 }
 
+;----------------------------------------Scripted Combat Functions----------------
+
 scripted_bow() {
     if (firing_bow) { 
-       Click, Left Up ; fire if we press this again
+       ; fire if we press this again
        fired_already:=true
        return 
     }
@@ -209,7 +293,7 @@ scripted_bow() {
 
     
     Click, Right Down
-    ;Sleep, 200
+   
 
     if (extra_arrows) {
         
@@ -267,8 +351,11 @@ scripted_bow() {
 
 }
 
-~w::     
 
+;----------------------------------------Double tap to Dodge----------------
+
+    
+dodge_forward() {
     
     If (A_ThisHotkey = A_PriorHotkey)   {
       ;SoundPlay, Sounds/1.mp3
@@ -281,11 +368,12 @@ scripted_bow() {
     }
  
 interrupted_w:=false
+}
 
-return
 
-~s::     
 
+    
+dodge_backward() {
     
     If (A_ThisHotkey = A_PriorHotkey)   {
       ;SoundPlay, Sounds/1.mp3
@@ -298,12 +386,12 @@ return
     }
  
 interrupted_s:=false
+}
 
-return
 
 
-~a::     
-
+    
+dodge_left() {
     
     If (A_ThisHotkey = A_PriorHotkey)   {
       ;SoundPlay, Sounds/1.mp3
@@ -316,11 +404,11 @@ return
     }
  
 interrupted_a:=false
+}
 
-return
 
-~d::    
-
+    
+dodge_right() {
     
     If (A_ThisHotkey = A_PriorHotkey)   {
       ;SoundPlay, Sounds/1.mp3
@@ -332,30 +420,128 @@ return
     }
  
 interrupted_d:=false
+}
 
-return
-
-z::
-stop_loop:=false
-combat_loop()
-return
+;----------------------------------------Tools Functions-----------------------------
 
 
-x:: 
-stop_loop:=true
+potion_150() {
+  this_item:=0xA6AAA6
+  this_x:=206
+  this_y:=958
+  this_location:=1
+  immediate_use:=true
+}
 
-return
+potion_300() {
+  this_item:=0xCACFCA
+  this_x:=178
+  this_y:=955
+  this_location:=3
+  immediate_use:=true
+}
+
+potion_boost() {
+  this_item:=0xE5BC69
+  this_x:=174
+  this_y:=991
+  this_location:=4
+  immediate_use:=true
+}
+
+call_beast() {
+  this_item:=0xF4F6F4
+  this_x:=187
+  this_y:=961
+  this_location:=11
+  immediate_use:=true
+}
+
+fire_resist() {
+  this_item:=0xEEAE2C
+  this_x:=193
+  this_y:=997
+  this_location:=5
+  immediate_use:=true
+}
+
+
+shock_resist() {
+  this_item:=0x2FA2DA
+  this_x:=186
+  this_y:=997
+  this_location:=6
+  immediate_use:=true
+}
+
+
+freeze_resist() {
+  this_item:=0x7CD6CB
+  this_x:=189
+  this_y:=994
+  this_location:=7
+  immediate_use:=true
+}
+
+corruption_resist() {
+  this_item:=0x40C949
+  this_x:=194
+  this_y:=998
+  this_location:=8
+  immediate_use:=true
+}
+
+detonating_trap() {
+  this_item:=0xF48B44
+  this_x:=200
+  this_y:=975
+  this_location:=2
+  immediate_use:=false
+}
+
+shock_trap() {
+  this_item:=0x1F9FEF
+  this_x:=202
+  this_y:=984
+  this_location:=9 
+  immediate_use:=false
+}
+
+fire_trap() {
+  this_item:=0xEBC54C
+  this_x:=205
+  this_y:=984
+  this_location:=10  
+  immediate_use:=false
+}
+
+lure_beast() {
+  this_item:=0xF5F8F5
+  this_x:=187
+  this_y:=998
+  this_location:=12 
+  immediate_use:=true 
+}
+
+
+;----------------------------------------Combat Loop---------------------------------
+
 
 combat_loop() {
    SoundPlay, Sounds/ScriptActive.mp3,1
 
    loop {
   
-       if (stop_loop) {
+       
+
+       if (!script_active) {
           SoundPlay, Sounds/ScriptDisabled.mp3,1
           break
        } 
        
+       if (!action_screen()) ; just jump to end of loop if we are in a menu screen
+          continue
+
        GetKeyState, state, w, P
           if (state = "U")
              interrupted_w:=true
@@ -374,8 +560,11 @@ combat_loop() {
 
        elapsed_time:=A_TickCount -  last_time
 
-       if (counter>13)
+       if (counter>13) { ; did not find the item
             this_item:=0
+            counter:=0
+            SoundPlay, *16
+       }
        
        if (this_item) {
          
@@ -391,12 +580,13 @@ combat_loop() {
               this_item:=0
               last_time:=0
               last_location:=this_location
-              SoundPlay, *16
+              SoundPlay, *48
               counter:=0
-              ;Send {f down}
-              ;Sleep, keywaittime
-              ;Send {f up}
-
+              if (immediate_use) {
+                  Send {f down}
+                  Sleep, keywaittime
+                  Send {f up}
+              }
            } else {
               shift_tools()
               counter++
@@ -406,78 +596,73 @@ combat_loop() {
        }
 }
 
-shift_tools() {
-direction:=0 ; left
-
-if (last_location>this_location)        ;  T . <- . L
-   direction:=0
-else if (this_location>last_location)   ;  L . -> . T
-   direction:=1 
-
-magnitude:=abs(last_location-this_location)
-if (magnitude>6)
-   direction:=!direction
+;----------------------------------------Helper Functions---------------------------------
 
 
+action_screen() {
 
-if (direction) {
-    Send {] down}
-    Sleep, 50
-    Send {] up} 
-} else {
-    Send {[ down}
-    Sleep, 50
-    Send {[ up} 
+  ;The color at 189 and 923  is 0xACEAC0 and it took 0 milliseconds 
+  if (Check_pixel(189, 923, 0xACEAC0)) { ; Plus sign detected
+      wheel_mode:=true
+  } else {                               ; Probably in a menu screen
+      wheel_mode:=false
+  }
+ 
+  
+  return wheel_mode 
 }
+
+shift_tools() {
+    direction:=0 ; left
+
+    if (last_location>this_location)        ;  T . <- . L
+       direction:=0
+    else if (this_location>last_location)   ;  L . -> . T
+       direction:=1 
+
+    magnitude:=abs(last_location-this_location)
+    if (magnitude>6)
+       direction:=!direction
+
+    if (direction) {
+        Send {] down}
+        Sleep, keywaittime
+        Send {] up} 
+    } else {
+        Send {[ down}
+        Sleep, keywaittime
+        Send {[ up} 
+    }
 
 }
 
 dodge() {
-  if (dodging)
-     return
-  dodging:=true
-  Send {/ down}
-  Sleep, keywaittime
-  Send {/ up} 
-  dodging:=false
+    if (dodging)
+       return
+
+    dodging:=true
+    Send {/ down}
+    Sleep, keywaittime
+    Send {/ up} 
+    dodging:=false
 }
 
+pause_script()
+{
+   script_active:=!script_active
+   if (script_active) {
+      SoundPlay, Sounds/ScriptActive.mp3
+      textentry:=false
+      combat_loop()
 
-
-
-
-;The color at 156 and 950  is 0x1A1D22 and it took 31 milliseconds 
-;The color at 226 and 1003  is 0x25282F and it took 31 milliseconds 
-
-Thumb_Ready(Byref item, epic, ebac) {  ; 
-  ;Thumbnail detection
-  
-  result:=false
-  
-  thumb:=item
-  
-         xul:=156
-         yul:=950
-         xlr:=226
-         ylr:=1003
-
-         
-         Outx:=""
-         Outy:=""
-         resultObj:=FindText(Outx,Outy,xul,yul,xlr,ylr,epic,ebac,thumb,1,0)
-         if ((resultObj[1].1>xul) && (resultObj[1].1<xlr) && (resultObj[1].2>yul) && (resultObj[1].2<ylr)) {
-          
-           return true
-         } else {
-          
-           return false
-
-         }
-        
-
-
+   }
+   else ; not script_active
+   {
       
-  
+      textentry:=true
+      SoundPlay, Sounds/ScriptDisabled.mp3
+   }
 }
+
 
 
