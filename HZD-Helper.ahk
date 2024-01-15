@@ -6,12 +6,64 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 #MaxThreadsPerHotkey 2
 #MaxThreads 15
 
-#Include FindText.ahk
+global this_item         := {name: ""        , pixel: "", x: "", y: "", loc: "" ,  avail: "", auto: "" }
 
-; Pictures
+global potion_150        := {name: "potion_150"        , pixel: "0xA6AAA6", x: "206", y: "958", loc: "1" ,  avail: "1", auto: "1" , err: "25"}
+global potion_300        := {name: "potion_300"        , pixel: "0xCACFCA", x: "178", y: "955", loc: "3" ,  avail: "1", auto: "1" , err: "25"}
+global potion_boost      := {name: "potion_boost"      , pixel: "0xE5BC69", x: "174", y: "991", loc: "4" ,  avail: "1", auto: "1" , err: "25"}
+global call_beast        := {name: "call_beast"        , pixel: "0xF4F6F4", x: "187", y: "961", loc: "11",  avail: "1", auto: "1" , err: "25"}
 
-Escape_thumb:="|<>**50$28.00000zU007z0E0TQ3U1k04070DVsQ1zDkzjvz3ysC0Q3ws3kDzU701a2Q03s9zzxz7zzXwCNw7U0040000000000000008"
+global fire_resist       := {name: "fire_resist"       , pixel: "0xEEAE2C", x: "193", y: "997", loc: "5" ,  avail: "1", auto: "1" , err: "50"}
+global shock_resist      := {name: "shock_resist"      , pixel: "0x2FA2DA", x: "186", y: "997", loc: "6" ,  avail: "1", auto: "1" , err: "50"}
+global freeze_resist     := {name: "freeze_resist"     , pixel: "0x7CD6CB", x: "189", y: "994", loc: "7" ,  avail: "1", auto: "1" , err: "50"}
+global corruption_resist := {name: "corruption_resist" , pixel: "0x40C949", x: "194", y: "998", loc: "8" ,  avail: "1", auto: "1" , err: "50"}
 
+global detonating_trap   := {name: "detonating_trap"   , pixel: "0xF48B44", x: "200", y: "975", loc: "2" ,  avail: "1", auto: "0" , err: "25"}
+global shock_trap        := {name: "shock_trap"        , pixel: "0x1F9FEF", x: "202", y: "984", loc: "9" ,  avail: "1", auto: "0" , err: "25"}
+global fire_trap         := {name: "fire_trap"         , pixel: "0xEBC54C", x: "205", y: "984", loc: "10",  avail: "1", auto: "0" , err: "25"}
+global lure_beast        := {name: "lure_beast"        , pixel: "0xF5F8F5", x: "187", y: "998", loc: "12",  avail: "1", auto: "1" , err: "25"}
+
+global Tools := {  potion_150:potion_150
+                  ,potion_300:potion_300
+                  ,potion_boost:potion_boost
+                  ,call_beast:call_beast
+
+                  ,fire_resist:fire_resist
+                  ,shock_resist:shock_resist
+                  ,freeze_resist:freeze_resist
+                  ,corruption_resist:corruption_resist
+
+                  ,detonating_trap:detonating_trap
+                  ,shock_trap:shock_trap
+                  ,fire_trap:fire_trap
+                  ,lure_beast:lure_beast }
+
+
+
+
+;The color at 203 and 102  is 0xADADAD and it took 0 milliseconds 
+;The color at 197 and 131  is 0xEC5974 and it took 31 milliseconds 
+
+;The color at 246 and 103  is 0xF7F7F7 and it took 0 milliseconds 
+;The color at 245 and 123  is 0x5FA5E8 and it took 0 milliseconds 
+
+;The color at 290 and 104  is 0xF5F5F5 and it took 31 milliseconds 
+;The color at 285 and 126  is 0xADF7F7 and it took 31 milliseconds 
+
+;The color at 332 and 104  is 0xEEEEEE and it took 31 milliseconds 
+;The color at 329 and 119  is 0xF0D75A and it took 31 milliseconds 
+
+global corruption_pixel:= { pixel: "0xEC5974", x: "197", y: "131", status_pixel: "0xF5F5F5", status_pixel_x: "203", status_pixel_y:"103" }
+global shock_pixel:=      { pixel: "0x5FA5E8", x: "245", y: "123", status_pixel: "0xF5F5F5", status_pixel_x: "246", status_pixel_y:"103" }
+global freeze_pixel:=     { pixel: "0xADF7F7", x: "285", y: "126", status_pixel: "0xF5F5F5", status_pixel_x: "290", status_pixel_y:"103" }
+global fire_pixel:=       { pixel: "0xF0D75A", x: "329", y: "119", status_pixel: "0xF5F5F5", status_pixel_x: "332", status_pixel_y:"103" }
+
+global protect_from_corruption:=false
+global protect_from_shock:=false
+global protect_from_freezing:=false
+global protect_from_fire:=false
+
+global in_combat:=false
 
 global wheel_mode:=true
 
@@ -26,6 +78,9 @@ global bow_wait:=1500
 global shift_time:=250
 global reload_time:=150
 
+global auto_timer:=0
+global auto_last:=0
+
 global script_active:=true
 global dodging:=false
 global firing_bow:=false
@@ -34,7 +89,6 @@ global extra_arrows:=true
 global last_time:=A_TickCount
 global elapsed_time:=0
 
-global this_item:=0
 global this_x:=0
 global this_y:=0
 global this_location:=0
@@ -62,67 +116,117 @@ return
 
 
 #if (!textentry) ; Conditional hotkey activation
+;----------------------------------------Modifier keys-------------------------
+
+Insert::
+   protect_from_shock:=true
+   auto_last:=0
+return
+
+
+Delete::
+   protect_from_shock:=false   
+   return
+
+Home::
+  protect_from_freezing:=true
+  auto_last:=0
+  return
+
+
+
+
+End::
+  protect_from_freezing:=false
+  return
+
+
+
+PgUp::
+   
+   protect_from_fire:=true
+   auto_last:=0
+   return
+
+
+
+PgDn::
+   protect_from_fire:=false
+   return
+
+
+
 ;----------------------------------------Function Keys to Tools----------------
 
 F1:: ;Potion150
-potion_150()
+this_item:=potion_150
+counter:=0
 
 return
 
 F2:: ;Potion300
-potion_300()
+this_item:=potion_300
+counter:=0
 
 return
 
 F3:: ;PotionBoost
-potion_boost()
+this_item:=potion_boost
+counter:=0
 
 return
 
 F4:: ;Call_Beast
-call_beast()
+this_item:=call_beast
+counter:=0
 
 return
 
-
 F5:: ;Fire_Resist
-fire_resist()
-
+this_item:=fire_resist
+counter:=0
 
 return
 
 F6:: ;Shock_Resist
-shock_resist()
+this_item:=shock_resist
+counter:=0
 
 return
 
 F7:: ;Freeze_Resist
-freeze_resist()
+this_item:=freeze_resist
+counter:=0
 
 return
 
 F8:: ;Corruption_Resist
-corruption_resist()
+this_item:=corruption_resist
+counter:=0
 
 return
 
-
 F9:: ;Detonating_Trap
-detonating_trap()
+this_item:=detonating_trap
+counter:=0
+
 return
 
 F10:: ;Shock_Trap
-shock_trap()
+this_item:=shock_trap
+counter:=0
 
 return
 
 F11:: ;Fire_Trap
-fire_trap()
+this_item:=fire_trap
+counter:=0
 
 return
 
 F12:: ;Lure_Beast
-lure_beast()
+this_item:=lure_beast
+counter:=0
 
 return
 
@@ -168,35 +272,31 @@ return
 ;----------------------------------------Shortcuts to Health Potions----------------
 
 z::
-potion_150()
+this_item:=potion_150
 return
 
 
 x:: 
-potion_300()
+this_item:=potion_300
 
 return
 
 
 c::
-potion_boost()
+this_item:=potion_boost
 
 return
 
 v::
-call_beast()
+this_item:=call_beast
 
 return
 
-;~m:: ; allow mousewheel in maps
-;wheel_mode:=false
-
-;return
-
-~Esc::
-wheel_mode:=true
+y::
+reset_tools()
 
 return
+
 
 ;----------------------------------------Special Mouse Buttons----------------
 
@@ -206,33 +306,29 @@ scripted_bow()
 return
 
 WheelLeft::
-detonating_trap()
+this_item:=detonating_trap
 
 return
 
 WheelRight:
-shock_trap()
+this_item:=shock_trap
 
 return
 
 
 $WheelDown::
 if (wheel_mode)
-  lure_beast()
+  this_item:=lure_beast
 else {
   Send {WheelDown}
-  ;Sleep, keywaittime
-  ;Send {WheelDown up}
 } 
 return
 
 $WheelUp::
 if (wheel_mode)
-  fire_trap()
+  this_item:=fire_trap
 else {
   Send {WheelUp}
-  ;Sleep, keywaittime
-  ;Send {WheelUp up}
 } 
 return
 
@@ -255,11 +351,11 @@ ToRGB(color) {
 }
 
 
-Check_pixel(xcoord, ycoord, colormatch) {
+Check_pixel(xcoord, ycoord, colormatch, vary) {
 
     c1 := ToRGB(colormatch)
 
-    vary:=25
+    
 
     PixelGetColor, color, %xcoord%, %ycoord%, RGB 
     c2 := ToRGB(color)
@@ -424,103 +520,31 @@ interrupted_d:=false
 
 ;----------------------------------------Tools Functions-----------------------------
 
-
-potion_150() {
-  this_item:=0xA6AAA6
-  this_x:=206
-  this_y:=958
-  this_location:=1
-  immediate_use:=true
+autoresist_shock() {
+  if (!this_item.name)  
+    if (!Check_Pixel(shock_pixel.x, shock_pixel.y, shock_pixel.pixel, 25))
+      if (!Check_Pixel(shock_pixel.status_pixel_x, shock_pixel.status_pixel_y, shock_pixel.status_pixel,25)) {    
+              this_item:=shock_resist
+              counter:=0
+     }
 }
 
-potion_300() {
-  this_item:=0xCACFCA
-  this_x:=178
-  this_y:=955
-  this_location:=3
-  immediate_use:=true
+autoresist_freezing() {
+  if (!this_item.name)  
+    if (!Check_Pixel(freeze_pixel.x, freeze_pixel.y, freeze_pixel.pixel, 25))
+      if (!Check_Pixel(freeze_pixel.status_pixel_x, freeze_pixel.status_pixel_y, freeze_pixel.status_pixel,25)) {      
+              this_item:=freeze_resist
+              counter:=0
+      }
 }
 
-potion_boost() {
-  this_item:=0xE5BC69
-  this_x:=174
-  this_y:=991
-  this_location:=4
-  immediate_use:=true
-}
-
-call_beast() {
-  this_item:=0xF4F6F4
-  this_x:=187
-  this_y:=961
-  this_location:=11
-  immediate_use:=true
-}
-
-fire_resist() {
-  this_item:=0xEEAE2C
-  this_x:=193
-  this_y:=997
-  this_location:=5
-  immediate_use:=true
-}
-
-
-shock_resist() {
-  this_item:=0x2FA2DA
-  this_x:=186
-  this_y:=997
-  this_location:=6
-  immediate_use:=true
-}
-
-
-freeze_resist() {
-  this_item:=0x7CD6CB
-  this_x:=189
-  this_y:=994
-  this_location:=7
-  immediate_use:=true
-}
-
-corruption_resist() {
-  this_item:=0x40C949
-  this_x:=194
-  this_y:=998
-  this_location:=8
-  immediate_use:=true
-}
-
-detonating_trap() {
-  this_item:=0xF48B44
-  this_x:=200
-  this_y:=975
-  this_location:=2
-  immediate_use:=false
-}
-
-shock_trap() {
-  this_item:=0x1F9FEF
-  this_x:=202
-  this_y:=984
-  this_location:=9 
-  immediate_use:=false
-}
-
-fire_trap() {
-  this_item:=0xEBC54C
-  this_x:=205
-  this_y:=984
-  this_location:=10  
-  immediate_use:=false
-}
-
-lure_beast() {
-  this_item:=0xF5F8F5
-  this_x:=187
-  this_y:=998
-  this_location:=12 
-  immediate_use:=true 
+autoresist_fire() {
+  if (!this_item.name)  
+    if (!Check_Pixel(fire_pixel.x, fire_pixel.y, fire_pixel.pixel, 25))
+      if (!Check_Pixel(fire_pixel.status_pixel_x, fire_pixel.status_pixel_y, fire_pixel.status_pixel,25)) {
+              this_item:=fire_resist
+              counter:=0
+      }
 }
 
 
@@ -528,81 +552,122 @@ lure_beast() {
 
 
 combat_loop() {
+   if (in_combat)
+      return
+
+   in_combat:=true
    SoundPlay, Sounds/ScriptActive.mp3,1
 
    loop {
   
-       
-
        if (!script_active) {
           SoundPlay, Sounds/ScriptDisabled.mp3,1
           break
        } 
        
-       if (!action_screen()) ; just jump to end of loop if we are in a menu screen
-          continue
-
-       GetKeyState, state, w, P
-          if (state = "U")
-             interrupted_w:=true
-
-       GetKeyState, state, s, P
-          if (state = "U")
-             interrupted_s:=true
-
-       GetKeyState, state, a, P
-          if (state = "U")
-             interrupted_a:=true
-
-       GetKeyState, state, d, P
-          if (state = "U")
-             interrupted_d:=true
+       if (!action_screen())  { ; just jump to end of loop if we are in a menu screen
+         auto_last:=A_TickCount ; but refresh the auto timer so automatic tools will not suddenly get activated
+         continue
+       }
+       
 
        elapsed_time:=A_TickCount -  last_time
 
+       auto_timer:=A_TickCount - auto_last
+
+       if (auto_timer>=500) { ; prevent from launching the automated tools until the screen has had a chance to refresh. 
+         if (protect_from_shock)
+             autoresist_shock()
+         if (protect_from_freezing)
+             autoresist_freezing()
+         if (protect_from_fire)
+             autoresist_fire()
+       }
+
+
        if (counter>13) { ; did not find the item
-            this_item:=0
+            
             counter:=0
             SoundPlay, *16
-       }
+            this_item.avail:=0
+            this_item:=""
+       } 
        
-       if (this_item) {
+     
+        if (this_item.avail) { 
          
-         
-         if (last_time)
-           elapsed_time:=A_TickCount -  last_time
-         else
-           elapsed_time:=shift_time
-
-         if (elapsed_time>=shift_time)
+       
+         if (elapsed_time>=shift_time) {
            
-           if (Check_pixel(this_x, this_y, this_item)) {
-              this_item:=0
-              last_time:=0
-              last_location:=this_location
+           if (Check_pixel(this_item.x, this_item.y, this_item.pixel, this_item.err)) {
+           
+              last_time:=A_TickCount
+
+              last_location:=this_item.loc
               SoundPlay, *48
               counter:=0
-              if (immediate_use) {
+
+              if (this_item.auto) {
                   Send {f down}
                   Sleep, keywaittime
                   Send {f up}
+                  auto_last:=A_TickCount
               }
-           } else {
-              shift_tools()
-              counter++
-              last_time:=A_TickCount
-           } 
-        }
-       }
+             
+              
+              this_item:=""
+             
+
+           } else  {
+                  
+                    shift_tools()
+              
+              
+           } ; check_pixel
+
+          
+
+          } ; shift time
+        } ; item.avail
+
+
+
+        GetKeyState, state, w, P
+          if (state = "U")
+             interrupted_w:=true
+
+        GetKeyState, state, s, P
+          if (state = "U")
+             interrupted_s:=true
+
+        GetKeyState, state, a, P
+          if (state = "U")
+             interrupted_a:=true
+
+        GetKeyState, state, d, P
+          if (state = "U")
+             interrupted_d:=true
+
+
+      } ; loop
+       
+      in_combat:=false
 }
 
 ;----------------------------------------Helper Functions---------------------------------
+
+reset_tools() {
+  for key, value in Tools {
+      value.avail:=1
+   } ; for
+}
+
 
 
 action_screen() {
 
   ;The color at 189 and 923  is 0xACEAC0 and it took 0 milliseconds 
-  if (Check_pixel(189, 923, 0xACEAC0)) { ; Plus sign detected
+  if (Check_pixel(189, 923, 0xACEAC0, 25)) { ; Plus sign detected
       wheel_mode:=true
   } else {                               ; Probably in a menu screen
       wheel_mode:=false
@@ -613,6 +678,8 @@ action_screen() {
 }
 
 shift_tools() {
+
+    
     direction:=0 ; left
 
     if (last_location>this_location)        ;  T . <- . L
@@ -628,10 +695,14 @@ shift_tools() {
         Send {] down}
         Sleep, keywaittime
         Send {] up} 
+        counter++
+        last_time:=A_TickCount
     } else {
         Send {[ down}
         Sleep, keywaittime
-        Send {[ up} 
+        Send {[ up}
+        counter++ 
+        last_time:=A_TickCount
     }
 
 }
